@@ -243,19 +243,6 @@ class _FileViewerPageState extends State<FileViewerPage> {
             ),
           ],
         ),
-        floatingActionButton: FloatingActionButton(
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          child: const Icon(Icons.refresh),
-          onPressed: () {
-            // 刷新功能
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text('页面已刷新'),
-                behavior: SnackBarBehavior.floating,
-              ),
-            );
-          },
-        ),
       ),
     );
   }

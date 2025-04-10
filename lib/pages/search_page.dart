@@ -152,6 +152,88 @@ class _SearchPageState extends State<SearchPage>
     _viewerService.openFile(context, fileInfo);
   }
 
+  // 文件重命名功能
+  void _renameFile(FileInfo fileInfo) {
+    final TextEditingController nameController =
+        TextEditingController(text: fileInfo.name);
+    final formKey = GlobalKey<FormState>();
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('重命名文件'),
+        content: Form(
+          key: formKey,
+          child: TextFormField(
+            controller: nameController,
+            decoration: const InputDecoration(
+              labelText: '文件名称',
+              hintText: '输入新的文件名',
+            ),
+            validator: (value) {
+              if (value == null || value.isEmpty) {
+                return '文件名不能为空';
+              }
+              return null;
+            },
+            autofocus: true,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          TextButton(
+            onPressed: () async {
+              if (formKey.currentState!.validate()) {
+                Navigator.pop(context);
+
+                // 获取文件信息
+                final String path = fileInfo.path;
+                final String type = fileInfo.type;
+                final String oldName = fileInfo.name;
+                final String newName = nameController.text;
+
+                // 构建更新后的文件信息
+                FileInfo updatedInfo = FileInfo(
+                  path: path,
+                  name: newName,
+                  type: type,
+                  lastOpened: fileInfo.lastOpened,
+                  isFavorite: fileInfo.isFavorite,
+                  tags: fileInfo.tags,
+                  category: fileInfo.category,
+                );
+
+                // 保存更新
+                await _storageService.updateFileInfo(updatedInfo);
+
+                // 重新进行搜索，刷新列表
+                _performSearch();
+
+                // 显示提示
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('文件已重命名: $oldName → $newName'),
+                      behavior: SnackBarBehavior.floating,
+                      shape: RoundedRectangleBorder(
+                        borderRadius:
+                            BorderRadius.circular(_themeService.borderRadius),
+                      ),
+                    ),
+                  );
+                }
+              }
+            },
+            child: const Text('保存'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -750,6 +832,7 @@ class _SearchPageState extends State<SearchPage>
         child: InkWell(
           borderRadius: BorderRadius.circular(_themeService.borderRadius),
           onTap: () => _openFile(fileInfo),
+          onLongPress: () => _renameFile(fileInfo),
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: Row(

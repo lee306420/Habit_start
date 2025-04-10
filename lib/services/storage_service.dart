@@ -222,6 +222,81 @@ class StorageService {
   }
 
   Future<void> updateFileInfo(FileInfo fileInfo) async {
+    // 首先获取原来的文件信息
+    final List<Map<String, dynamic>> maps = await _database.query(
+      'files',
+      where: 'path = ?',
+      whereArgs: [fileInfo.path],
+    );
+
+    if (maps.isNotEmpty) {
+      FileInfo oldInfo = FileInfo.fromMap(maps[0]);
+
+      // 如果文件名发生了变化，需要重命名实际文件
+      if (oldInfo.name != fileInfo.name) {
+        // 获取旧文件的完整路径
+        final String oldFilePath = getFullPath(fileInfo.path);
+
+        try {
+          final file = File(oldFilePath);
+          if (await file.exists()) {
+            // 确保新文件名中包含正确的扩展名
+            String newFileName = fileInfo.name;
+            if (!newFileName.toLowerCase().endsWith(".${fileInfo.type}") &&
+                (fileInfo.type == 'html' || fileInfo.type == 'pdf')) {
+              newFileName = "$newFileName.${fileInfo.type}";
+            }
+
+            // 生成新的相对路径
+            String newRelativePath = fileInfo.path;
+            if (newRelativePath.contains('/')) {
+              // 如果路径包含目录，保留目录部分
+              final parts = newRelativePath.split('/');
+              parts[parts.length - 1] = newFileName;
+              newRelativePath = parts.join('/');
+            } else {
+              // 如果只有文件名，直接替换
+              newRelativePath = newFileName;
+            }
+
+            // 获取新文件的完整路径
+            final String newFilePath = getFullPath(newRelativePath);
+
+            // 重命名实际文件
+            await file.rename(newFilePath);
+
+            // 更新数据库中的路径和文件名
+            FileInfo updatedInfo = FileInfo(
+              path: newRelativePath,
+              name: newFileName,
+              type: fileInfo.type,
+              lastOpened: fileInfo.lastOpened,
+              isFavorite: fileInfo.isFavorite,
+              tags: fileInfo.tags,
+              category: fileInfo.category,
+            );
+
+            // 更新数据库记录
+            await _database.update(
+              'files',
+              updatedInfo.toMap(),
+              where: 'path = ?',
+              whereArgs: [fileInfo.path],
+            );
+
+            print('文件重命名成功: $oldFilePath -> $newFilePath');
+            return;
+          } else {
+            print('原文件不存在: $oldFilePath');
+          }
+        } catch (e) {
+          print('重命名文件失败: $e');
+          // 如果重命名失败，继续使用原来的路径更新数据库
+        }
+      }
+    }
+
+    // 如果不需要重命名文件或重命名失败，只更新数据库
     await _database.update(
       'files',
       fileInfo.toMap(),
